@@ -1,13 +1,13 @@
 from block import *
 from Transaction import *
 from time import time
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import json
 import hashlib as hash
 class Blockchain: # todo: implement transaction validation
 #todo: make each node able to mine, listen for creation of new blocks, verify it and restart the race as soon as possible
     def __init__(self):
-        self.chain = []
+        self.chain = [] #chain of blocks
         self.current_transactions = []
         #appending the genesis block
         self.chain.append(
@@ -78,26 +78,66 @@ class Blockchain: # todo: implement transaction validation
         return True
     
 blockchain = Blockchain()
-# print(blockchain.mine())
-# print(blockchain.validate_block(Block([], "000005dd81520ea6a43a7eb585e5968f173a3113e3bb6d9dfbbb9b6a5ea3e8e8", 3000992)))
-# print(blockchain.mine())
+
+connected_ports = set()
+print(connected_ports)
+
+l = []
 
 app = Flask(__name__)
 
-@app.route("/")
-def Hello_World():
-    return json.dumps({"123": 123})
+@app.route("/", methods=['GET'])
+def index():
+    return json.dumps(l)
 
-@app.route("/mine")
+@app.route("/new_block", methods=['GET'])
 def mine():
     block = blockchain.mine()
     return json.dumps(block.__dict__)
 
-@app.route("/numblocks")
-def numblocks():
+@app.route("/blockinfo", methods=['GET'])
+def blockinfo():
     return json.dumps([b.__dict__ for b in blockchain.chain])
-# @app.route("/add_transaction")
-# def add_transaction():
+
+@app.route("/connected_ports", methods=['GET', 'DELETE', 'POST'])
+def connected_ports_ops():
+    global connected_ports
+    if request.method == 'GET':
+        return json.dumps(list(connected_ports))
+    elif request.method == 'DELETE':
+        ports = request.get_json()['port']
+        if type(ports) is list:
+            if all(type(p) is int for p in ports):
+                ports = set(ports)
+                initial_size = len(connected_ports) 
+                connected_ports = connected_ports - ports
+                return "Removed {} port(s)".format(initial_size - len(connected_ports)), 200
+                 
+        elif type(ports) is int:
+            if ports in connected_ports:
+                connected_ports.remove(ports)
+                return "Removed port {}".format(ports), 200
+            return "Requested port has not been connected to yet", 200
+        else:
+            return "Invalid request", 200
+    elif request.method == 'POST':
+        ports = request.get_json()['port']
+        if type(ports) is list:
+            if all(type(p) is int for p in ports):
+                ports = set(ports)
+                ports = ports - connected_ports
+                connected_ports = connected_ports | ports
+            else:
+                return "Invalid request", 200
+        elif type(ports) is int:
+            if ports not in connected_ports:
+                connected_ports.add(ports)
+            else:
+                return "Port is already connected"
+        else:
+            return "Invalid request", 200
+        return "Added successfully",200
+
     
 
 # print(blockchain.validate_block(123))
